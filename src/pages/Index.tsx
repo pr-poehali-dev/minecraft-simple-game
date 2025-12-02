@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Game from '@/components/Game';
 
+type GameMode = 'survival' | 'creative' | null;
+
 const Index = () => {
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  if (gameStarted) {
-    return <Game onExit={() => setGameStarted(false)} />;
+  if (gameMode) {
+    return <Game mode={gameMode} onExit={() => setGameMode(null)} />;
   }
 
   if (showSettings) {
@@ -45,7 +47,7 @@ const Index = () => {
         
         <div className="space-y-4">
           <Button 
-            onClick={() => setGameStarted(true)}
+            onClick={() => setGameMode('survival')}
             className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
             style={{ fontFamily: "'Press Start 2P', cursive" }}
           >
@@ -61,11 +63,11 @@ const Index = () => {
           </Button>
           
           <Button 
-            onClick={() => setGameStarted(true)}
+            onClick={() => setGameMode('survival')}
             className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
             style={{ fontFamily: "'Press Start 2P', cursive" }}
           >
-            ОДИНОЧНЫЙ МИР
+            ВЫЖИВАНИЕ
           </Button>
           
           <Button 

@@ -50,12 +50,20 @@ const BLOCK_NAMES: Record<BlockType, string> = {
   air: 'Воздух'
 };
 
-const Game = ({ onExit }: { onExit: () => void }) => {
+const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => void }) => {
   const [world, setWorld] = useState<Block[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { type: 'grass', count: 10 },
-    { type: 'dirt', count: 5 }
-  ]);
+  const [inventory, setInventory] = useState<InventoryItem[]>(
+    mode === 'survival' 
+      ? [] 
+      : [
+          { type: 'grass', count: 999 },
+          { type: 'dirt', count: 999 },
+          { type: 'stone', count: 999 },
+          { type: 'wood', count: 999 }
+        ]
+  );
+  const [health, setHealth] = useState(20);
+  const [hunger, setHunger] = useState(20);
   const [showInventory, setShowInventory] = useState(false);
   const [showCraft, setShowCraft] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<BlockType>('grass');
@@ -153,13 +161,38 @@ const Game = ({ onExit }: { onExit: () => void }) => {
   return (
     <div className="min-h-screen bg-accent relative overflow-hidden">
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-        <Button
-          onClick={onExit}
-          className="bg-secondary hover:bg-secondary/90 text-white px-4 py-2"
-          style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
-        >
-          ВЫХОД
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button
+            onClick={onExit}
+            className="bg-secondary hover:bg-secondary/90 text-white px-4 py-2"
+            style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+          >
+            ВЫХОД
+          </Button>
+          
+          {mode === 'survival' && (
+            <div className="flex gap-3 bg-card/90 px-4 py-2 rounded border-2 border-border">
+              <div className="flex items-center gap-2">
+                <Icon name="Heart" size={16} className="text-red-500" />
+                <span 
+                  className="text-card-foreground font-bold"
+                  style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                >
+                  {health}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Icon name="Drumstick" size={16} className="text-orange-500" />
+                <span 
+                  className="text-card-foreground font-bold"
+                  style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                >
+                  {hunger}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
         
         <div className="flex gap-2">
           <Button
@@ -318,12 +351,20 @@ const Game = ({ onExit }: { onExit: () => void }) => {
       )}
 
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-card/90 px-6 py-3 rounded border-2 border-border">
-        <p 
-          className="text-card-foreground text-center"
-          style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
-        >
-          ВЫБРАНО: {BLOCK_NAMES[selectedBlock]}
-        </p>
+        <div className="flex items-center gap-4">
+          <p 
+            className="text-card-foreground text-center"
+            style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
+          >
+            ВЫБРАНО: {BLOCK_NAMES[selectedBlock]}
+          </p>
+          <span 
+            className="text-muted-foreground"
+            style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '8px' }}
+          >
+            РЕЖИМ: {mode === 'survival' ? 'ВЫЖИВАНИЕ' : 'КРЕАТИВ'}
+          </span>
+        </div>
       </div>
     </div>
   );
