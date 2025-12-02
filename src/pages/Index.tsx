@@ -4,7 +4,7 @@ import Game from '@/components/Game';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type GameMode = 'survival' | 'creative' | null;
+type GameMode = 'survival' | 'creative' | 'zombie' | null;
 type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard' | 'nomobs';
 type Screen = 'menu' | 'world-create' | 'game' | 'settings';
 
@@ -57,6 +57,13 @@ const Index = () => {
                   style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '12px' }}
                 >
                   {gameMode === 'creative' ? '✓ ' : ''}КРЕАТИВ
+                </Button>
+                <Button
+                  onClick={() => setGameMode('zombie')}
+                  className={`w-full ${gameMode === 'zombie' ? 'bg-destructive' : 'bg-muted'} text-white font-bold py-4`}
+                  style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '12px' }}
+                >
+                  {gameMode === 'zombie' ? '✓ ' : ''}ЗОМБИ 🧟
                 </Button>
               </div>
             </div>
@@ -239,6 +246,20 @@ const Index = () => {
             style={{ fontFamily: "'Press Start 2P', cursive" }}
           >
             МУЛЬТИПЛЕЕР
+          </Button>
+          
+          <Button 
+            onClick={() => {
+              setGameMode('zombie');
+              setDifficulty('hard');
+              setIsMultiplayer(false);
+              setWorldSeed(Math.floor(Math.random() * 10000));
+              setScreen('game');
+            }}
+            className="w-full bg-destructive hover:bg-destructive/90 text-white font-bold py-6 text-lg"
+            style={{ fontFamily: "'Press Start 2P', cursive" }}
+          >
+            ЗОМБИ АПОКАЛИПСИС
           </Button>
           
           <Button 

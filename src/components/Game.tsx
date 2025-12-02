@@ -67,7 +67,7 @@ const DIFFICULTY_NAMES: Record<Difficulty, string> = {
 };
 
 interface GameProps {
-  mode: 'survival' | 'creative';
+  mode: 'survival' | 'creative' | 'zombie';
   difficulty: Difficulty;
   worldSeed: number;
   isMultiplayer: boolean;
@@ -93,6 +93,8 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
   const [selectedBlock, setSelectedBlock] = useState<BlockType>('grass');
   const [player, setPlayer] = useState<Player>({ x: 7, y: 3, color: '#0EA5E9', name: 'Игрок' });
   const [bots, setBots] = useState<Player[]>([]);
+  const [zombies, setZombies] = useState<Player[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const initialWorld: Block[] = [];
@@ -125,7 +127,20 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
         { x: 12, y: 3, color: '#D946EF', name: 'Бот2' }
       ]);
     }
-  }, [worldSeed, isMultiplayer]);
+
+    if (mode === 'zombie') {
+      setZombies([
+        { x: 1, y: 2, color: '#22C55E', name: 'Зомби1' },
+        { x: 14, y: 2, color: '#22C55E', name: 'Зомби2' },
+        { x: 8, y: 1, color: '#22C55E', name: 'Зомби3' }
+      ]);
+    }
+
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [worldSeed, isMultiplayer, mode]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -185,6 +200,40 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
 
     return () => clearInterval(botInterval);
   }, [isMultiplayer, bots.length, world]);
+
+  useEffect(() => {
+    if (mode !== 'zombie' || zombies.length === 0) return;
+
+    const zombieInterval = setInterval(() => {
+      setZombies(prevZombies => 
+        prevZombies.map(zombie => {
+          const dx = player.x - zombie.x;
+          const dy = player.y - zombie.y;
+          let newX = zombie.x;
+          let newY = zombie.y;
+
+          if (Math.abs(dx) > Math.abs(dy)) {
+            newX = dx > 0 ? Math.min(15, zombie.x + 1) : Math.max(0, zombie.x - 1);
+          } else {
+            newY = dy > 0 ? Math.min(9, zombie.y + 1) : Math.max(0, zombie.y - 1);
+          }
+
+          const blockAtPos = world.find(b => b.x === newX && b.y === newY);
+          if (blockAtPos && blockAtPos.type !== 'air') {
+            return zombie;
+          }
+
+          if (newX === player.x && newY === player.y) {
+            setHealth(prev => Math.max(0, prev - 2));
+          }
+
+          return { ...zombie, x: newX, y: newY };
+        })
+      );
+    }, 800);
+
+    return () => clearInterval(zombieInterval);
+  }, [mode, zombies.length, world, player.x, player.y]);
 
   const handleBlockClick = useCallback((x: number, y: number) => {
     if (Math.abs(player.x - x) > 2 || Math.abs(player.y - y) > 2) return;
@@ -274,7 +323,7 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
             ВЫХОД
           </Button>
           
-          {mode === 'survival' && (
+          {(mode === 'survival' || mode === 'zombie') && (
             <div className="flex gap-3 bg-card/90 px-4 py-2 rounded border-2 border-border">
               <div className="flex items-center gap-2">
                 <Icon name="Heart" size={16} className="text-red-500" />
@@ -285,15 +334,27 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
                   {health}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Icon name="Drumstick" size={16} className="text-orange-500" />
-                <span 
-                  className="text-card-foreground font-bold"
-                  style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
-                >
-                  {hunger}
-                </span>
-              </div>
+              {mode === 'survival' && (
+                <div className="flex items-center gap-2">
+                  <Icon name="Drumstick" size={16} className="text-orange-500" />
+                  <span 
+                    className="text-card-foreground font-bold"
+                    style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                  >
+                    {hunger}
+                  </span>
+                </div>
+              )}
+              {mode === 'zombie' && (
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="text-card-foreground font-bold"
+                    style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                  >
+                    🧟 x{zombies.length}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -365,10 +426,74 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
                   </div>
                 ) : null
               )}
+              {zombies.map((zombie, zombieIdx) => 
+                zombie.x === block.x && zombie.y === block.y ? (
+                  <div 
+                    key={`zombie-${zombieIdx}`}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: zombie.color }}
+                  >
+                    <span className="text-white text-2xl">🧟</span>
+                  </div>
+                ) : null
+              )}
             </div>
           ))}
         </div>
       </div>
+
+      {isMobile && (
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 flex gap-4 z-20">
+          <div className="flex flex-col gap-2">
+            <Button
+              onClick={() => setPlayer(prev => {
+                const newY = Math.max(0, prev.y - 1);
+                const blockAtPos = world.find(b => b.x === prev.x && b.y === newY);
+                if (blockAtPos && blockAtPos.type !== 'air') return prev;
+                return { ...prev, y: newY };
+              })}
+              className="bg-card/90 hover:bg-card text-card-foreground w-16 h-16"
+            >
+              <Icon name="ArrowUp" size={32} />
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setPlayer(prev => {
+                  const newX = Math.max(0, prev.x - 1);
+                  const blockAtPos = world.find(b => b.x === newX && b.y === prev.y);
+                  if (blockAtPos && blockAtPos.type !== 'air') return prev;
+                  return { ...prev, x: newX };
+                })}
+                className="bg-card/90 hover:bg-card text-card-foreground w-16 h-16"
+              >
+                <Icon name="ArrowLeft" size={32} />
+              </Button>
+              <Button
+                onClick={() => setPlayer(prev => {
+                  const newY = Math.min(9, prev.y + 1);
+                  const blockAtPos = world.find(b => b.x === prev.x && b.y === newY);
+                  if (blockAtPos && blockAtPos.type !== 'air') return prev;
+                  return { ...prev, y: newY };
+                })}
+                className="bg-card/90 hover:bg-card text-card-foreground w-16 h-16"
+              >
+                <Icon name="ArrowDown" size={32} />
+              </Button>
+              <Button
+                onClick={() => setPlayer(prev => {
+                  const newX = Math.min(15, prev.x + 1);
+                  const blockAtPos = world.find(b => b.x === newX && b.y === prev.y);
+                  if (blockAtPos && blockAtPos.type !== 'air') return prev;
+                  return { ...prev, x: newX };
+                })}
+                className="bg-card/90 hover:bg-card text-card-foreground w-16 h-16"
+              >
+                <Icon name="ArrowRight" size={32} />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showInventory && (
         <div className="absolute top-20 right-4 bg-card border-4 border-border p-4 rounded shadow-2xl max-w-xs">
