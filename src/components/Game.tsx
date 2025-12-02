@@ -95,6 +95,7 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
   const [bots, setBots] = useState<Player[]>([]);
   const [zombies, setZombies] = useState<Player[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [score, setScore] = useState(0);
 
   useEffect(() => {
     const initialWorld: Block[] = [];
@@ -238,6 +239,15 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
   const handleBlockClick = useCallback((x: number, y: number) => {
     if (Math.abs(player.x - x) > 2 || Math.abs(player.y - y) > 2) return;
 
+    if (mode === 'zombie') {
+      const zombieIndex = zombies.findIndex(z => z.x === x && z.y === y);
+      if (zombieIndex >= -1 && Math.abs(player.x - x) <= 1 && Math.abs(player.y - y) <= 1) {
+        setZombies(prev => prev.filter((_, idx) => idx !== zombieIndex));
+        setScore(prev => prev + 10);
+        return;
+      }
+    }
+
     setWorld(prev => {
       const blockIndex = prev.findIndex(b => b.x === x && b.y === y);
       if (blockIndex === -1) return prev;
@@ -277,7 +287,7 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
       
       return newWorld;
     });
-  }, [selectedBlock, inventory, player.x, player.y]);
+  }, [selectedBlock, inventory, player.x, player.y, mode, zombies]);
 
   const craftItem = (recipe: CraftRecipe) => {
     const canCraft = recipe.ingredients.every(ing => {
@@ -346,14 +356,25 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
                 </div>
               )}
               {mode === 'zombie' && (
-                <div className="flex items-center gap-2">
-                  <span 
-                    className="text-card-foreground font-bold"
-                    style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
-                  >
-                    🧟 x{zombies.length}
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-center gap-2">
+                    <span 
+                      className="text-card-foreground font-bold"
+                      style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                    >
+                      🧟 x{zombies.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Icon name="Star" size={16} className="text-yellow-500" />
+                    <span 
+                      className="text-card-foreground font-bold"
+                      style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                    >
+                      {score}
+                    </span>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -430,8 +451,9 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
                 zombie.x === block.x && zombie.y === block.y ? (
                   <div 
                     key={`zombie-${zombieIdx}`}
-                    className="absolute inset-0 flex items-center justify-center"
+                    className="absolute inset-0 flex items-center justify-center cursor-crosshair hover:brightness-125"
                     style={{ backgroundColor: zombie.color }}
+                    title="Клик - убить зомби (+10 очков)"
                   >
                     <span className="text-white text-2xl">🧟</span>
                   </div>
@@ -610,18 +632,28 @@ const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps)
 
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-card/90 px-6 py-3 rounded border-2 border-border">
         <div className="flex items-center gap-4">
-          <p 
-            className="text-card-foreground text-center"
-            style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
-          >
-            WASD/Стрелки
-          </p>
+          {!isMobile && (
+            <p 
+              className="text-card-foreground text-center"
+              style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
+            >
+              WASD/Стрелки
+            </p>
+          )}
           <span 
             className="text-muted-foreground"
             style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '8px' }}
           >
             {DIFFICULTY_NAMES[difficulty]} | Мир #{worldSeed}
           </span>
+          {mode === 'zombie' && (
+            <span 
+              className="text-primary font-bold"
+              style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
+            >
+              💀 Очки: {score}
+            </span>
+          )}
         </div>
       </div>
     </div>
