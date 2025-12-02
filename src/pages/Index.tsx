@@ -61,8 +61,8 @@ const Index = () => {
           </Button>
           
           <Button 
-            disabled
-            className="w-full bg-muted text-muted-foreground font-bold py-6 text-lg cursor-not-allowed opacity-50"
+            onClick={() => setGameStarted(true)}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg"
             style={{ fontFamily: "'Press Start 2P', cursive" }}
           >
             ОДИНОЧНЫЙ МИР
