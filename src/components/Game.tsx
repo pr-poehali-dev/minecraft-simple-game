@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 
 type BlockType = 'grass' | 'dirt' | 'stone' | 'wood' | 'air';
+type Difficulty = 'peaceful' | 'easy' | 'normal' | 'hard' | 'nomobs';
 
 interface Block {
   type: BlockType;
@@ -18,6 +19,13 @@ interface InventoryItem {
 interface CraftRecipe {
   result: BlockType;
   ingredients: { type: BlockType; count: number }[];
+  name: string;
+}
+
+interface Player {
+  x: number;
+  y: number;
+  color: string;
   name: string;
 }
 
@@ -50,7 +58,23 @@ const BLOCK_NAMES: Record<BlockType, string> = {
   air: 'Воздух'
 };
 
-const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => void }) => {
+const DIFFICULTY_NAMES: Record<Difficulty, string> = {
+  peaceful: 'Мирный',
+  easy: 'Лёгкий',
+  normal: 'Средний',
+  hard: 'Сложный',
+  nomobs: 'Без мобов'
+};
+
+interface GameProps {
+  mode: 'survival' | 'creative';
+  difficulty: Difficulty;
+  worldSeed: number;
+  isMultiplayer: boolean;
+  onExit: () => void;
+}
+
+const Game = ({ mode, difficulty, worldSeed, isMultiplayer, onExit }: GameProps) => {
   const [world, setWorld] = useState<Block[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>(
     mode === 'survival' 
@@ -67,24 +91,104 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
   const [showInventory, setShowInventory] = useState(false);
   const [showCraft, setShowCraft] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<BlockType>('grass');
+  const [player, setPlayer] = useState<Player>({ x: 7, y: 3, color: '#0EA5E9', name: 'Игрок' });
+  const [bots, setBots] = useState<Player[]>([]);
 
   useEffect(() => {
     const initialWorld: Block[] = [];
+    const random = (seed: number, x: number) => {
+      const val = Math.sin(seed * x * 12.9898 + 78.233) * 43758.5453;
+      return val - Math.floor(val);
+    };
+
     for (let y = 0; y < 10; y++) {
       for (let x = 0; x < 16; x++) {
-        if (y > 6) {
+        const heightVar = Math.floor(random(worldSeed, x) * 2);
+        const groundLevel = 6 + heightVar;
+        
+        if (y > groundLevel) {
           initialWorld.push({ type: 'grass', x, y });
-        } else if (y > 4) {
+        } else if (y > groundLevel - 2) {
           initialWorld.push({ type: 'dirt', x, y });
+        } else if (y > groundLevel - 4 && random(worldSeed, x * y) > 0.7) {
+          initialWorld.push({ type: 'stone', x, y });
         } else {
           initialWorld.push({ type: 'air', x, y });
         }
       }
     }
     setWorld(initialWorld);
-  }, []);
+
+    if (isMultiplayer) {
+      setBots([
+        { x: 3, y: 3, color: '#F97316', name: 'Бот1' },
+        { x: 12, y: 3, color: '#D946EF', name: 'Бот2' }
+      ]);
+    }
+  }, [worldSeed, isMultiplayer]);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (showInventory || showCraft) return;
+
+      setPlayer(prev => {
+        let newX = prev.x;
+        let newY = prev.y;
+
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A' || e.key === 'ф' || e.key === 'Ф') {
+          newX = Math.max(0, prev.x - 1);
+        } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D' || e.key === 'в' || e.key === 'В') {
+          newX = Math.min(15, prev.x + 1);
+        } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === 'Ц') {
+          newY = Math.max(0, prev.y - 1);
+        } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') {
+          newY = Math.min(9, prev.y + 1);
+        }
+
+        const blockAtPos = world.find(b => b.x === newX && b.y === newY);
+        if (blockAtPos && blockAtPos.type !== 'air') {
+          return prev;
+        }
+
+        return { ...prev, x: newX, y: newY };
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [world, showInventory, showCraft]);
+
+  useEffect(() => {
+    if (!isMultiplayer || bots.length === 0) return;
+
+    const botInterval = setInterval(() => {
+      setBots(prevBots => 
+        prevBots.map(bot => {
+          const direction = Math.floor(Math.random() * 4);
+          let newX = bot.x;
+          let newY = bot.y;
+
+          if (direction === 0) newX = Math.max(0, bot.x - 1);
+          else if (direction === 1) newX = Math.min(15, bot.x + 1);
+          else if (direction === 2) newY = Math.max(0, bot.y - 1);
+          else if (direction === 3) newY = Math.min(9, bot.y + 1);
+
+          const blockAtPos = world.find(b => b.x === newX && b.y === newY);
+          if (blockAtPos && blockAtPos.type !== 'air') {
+            return bot;
+          }
+
+          return { ...bot, x: newX, y: newY };
+        })
+      );
+    }, 1000);
+
+    return () => clearInterval(botInterval);
+  }, [isMultiplayer, bots.length, world]);
 
   const handleBlockClick = useCallback((x: number, y: number) => {
+    if (Math.abs(player.x - x) > 2 || Math.abs(player.y - y) > 2) return;
+
     setWorld(prev => {
       const blockIndex = prev.findIndex(b => b.x === x && b.y === y);
       if (blockIndex === -1) return prev;
@@ -124,7 +228,7 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
       
       return newWorld;
     });
-  }, [selectedBlock, inventory]);
+  }, [selectedBlock, inventory, player.x, player.y]);
 
   const craftItem = (recipe: CraftRecipe) => {
     const canCraft = recipe.ingredients.every(ing => {
@@ -223,7 +327,7 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
 
       <div className="flex items-center justify-center min-h-screen p-4">
         <div 
-          className="grid gap-0 border-4 border-black"
+          className="grid gap-0 border-4 border-black relative"
           style={{ 
             gridTemplateColumns: 'repeat(16, 40px)',
             gridTemplateRows: 'repeat(10, 40px)',
@@ -234,14 +338,34 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
             <div
               key={idx}
               onClick={() => handleBlockClick(block.x, block.y)}
-              className="border border-black/20 cursor-pointer hover:brightness-110 transition-all"
+              className="border border-black/20 cursor-pointer hover:brightness-110 transition-all relative"
               style={{
                 backgroundColor: BLOCK_COLORS[block.type],
                 width: '40px',
                 height: '40px',
                 imageRendering: 'pixelated'
               }}
-            />
+            >
+              {player.x === block.x && player.y === block.y && (
+                <div 
+                  className="absolute inset-0 flex items-center justify-center"
+                  style={{ backgroundColor: player.color }}
+                >
+                  <span className="text-white text-2xl">👤</span>
+                </div>
+              )}
+              {bots.map((bot, botIdx) => 
+                bot.x === block.x && bot.y === block.y ? (
+                  <div 
+                    key={botIdx}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: bot.color }}
+                  >
+                    <span className="text-white text-2xl">🤖</span>
+                  </div>
+                ) : null
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -255,37 +379,46 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
             ИНВЕНТАРЬ
           </h2>
           <div className="space-y-2">
-            {inventory.map((item, idx) => (
-              <div
-                key={idx}
-                onClick={() => setSelectedBlock(item.type)}
-                className={`flex items-center justify-between p-2 rounded cursor-pointer border-2 ${
-                  selectedBlock === item.type ? 'border-primary bg-primary/20' : 'border-transparent'
-                }`}
+            {inventory.length === 0 ? (
+              <p 
+                className="text-muted-foreground text-center"
+                style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
               >
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-8 h-8 border-2 border-black"
-                    style={{ 
-                      backgroundColor: BLOCK_COLORS[item.type],
-                      imageRendering: 'pixelated'
-                    }}
-                  />
+                Пусто
+              </p>
+            ) : (
+              inventory.map((item, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => setSelectedBlock(item.type)}
+                  className={`flex items-center justify-between p-2 rounded cursor-pointer border-2 ${
+                    selectedBlock === item.type ? 'border-primary bg-primary/20' : 'border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 border-2 border-black"
+                      style={{ 
+                        backgroundColor: BLOCK_COLORS[item.type],
+                        imageRendering: 'pixelated'
+                      }}
+                    />
+                    <span 
+                      className="text-card-foreground"
+                      style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
+                    >
+                      {BLOCK_NAMES[item.type]}
+                    </span>
+                  </div>
                   <span 
-                    className="text-card-foreground"
+                    className="text-card-foreground font-bold"
                     style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
                   >
-                    {BLOCK_NAMES[item.type]}
+                    x{item.count}
                   </span>
                 </div>
-                <span 
-                  className="text-card-foreground font-bold"
-                  style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '10px' }}
-                >
-                  x{item.count}
-                </span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
@@ -356,13 +489,13 @@ const Game = ({ mode, onExit }: { mode: 'survival' | 'creative'; onExit: () => v
             className="text-card-foreground text-center"
             style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '9px' }}
           >
-            ВЫБРАНО: {BLOCK_NAMES[selectedBlock]}
+            WASD/Стрелки
           </p>
           <span 
             className="text-muted-foreground"
             style={{ fontFamily: "'Press Start 2P', cursive", fontSize: '8px' }}
           >
-            РЕЖИМ: {mode === 'survival' ? 'ВЫЖИВАНИЕ' : 'КРЕАТИВ'}
+            {DIFFICULTY_NAMES[difficulty]} | Мир #{worldSeed}
           </span>
         </div>
       </div>
